@@ -73,4 +73,3 @@ def create_app(db_path=None):
         return redirect(row[0], code=302)
 
     return app
-
