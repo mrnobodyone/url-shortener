@@ -85,3 +85,26 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+
+  update-gitops:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: mrnobodyone/gitops-config
+          token: ${{ secrets.GITOPS_TOKEN }}
+      - name: Обновить тег образа
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            ENV=prod; TAG="${GITHUB_REF_NAME#v}"
+          else
+            ENV=dev; TAG="sha-${GITHUB_SHA::7}"
+          fi
+          sed -i "s|^  tag: .*|  tag: ${TAG}|" "envs/${ENV}/values.yaml"
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          if git diff --quiet; then echo "нет изменений"; exit 0; fi
+          git commit -am "ci: ${ENV} -> ${TAG}"
+          git push
